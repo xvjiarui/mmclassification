@@ -31,7 +31,8 @@ class ImageNet(BaseDataset):
             self.class_to_idx = class_to_idx
         elif isinstance(self.ann_file, str):
             with open(self.ann_file) as f:
-                samples = [x.strip().split(' ') for x in f.readlines()]
+                samples = [x.strip().split('\t') for x in f.readlines()]
+                # samples.sort(key=lambda x: int(x[-1]))
         else:
             raise TypeError('ann_file must be a str or None')
         self.samples = samples
