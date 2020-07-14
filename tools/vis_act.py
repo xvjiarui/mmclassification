@@ -1,20 +1,18 @@
 import argparse
-import os.path as osp
 import os
-from collections import defaultdict
+import os.path as osp
 
+import matplotlib.pyplot as plt
 import mmcv
+import numpy as np
 import torch
 from mmcv import Config, DictAction
+from mmcv.cnn.bricks import ContextBlock
 from mmcv.parallel import MMDataParallel
-from mmcv.runner import init_dist, load_checkpoint
+from mmcv.runner import load_checkpoint
 
 from mmcls.datasets import build_dataloader, build_dataset
 from mmcls.models import build_classifier
-from mmcv import tensor2imgs
-from mmcv.cnn.bricks import ContextBlock
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def parse_args():
@@ -36,7 +34,8 @@ def main():
 
     assert args.show or args.show_dir, \
         ('Please specify at least one operation (save/eval/format/show the '
-         'results / save the results) with the argument "--show" or "--show-dir"')
+         'results / save the results) with the argument "--show" or '
+         '"--show-dir"')
 
     cfg = Config.fromfile(args.config)
     # set cudnn_benchmark
@@ -58,7 +57,6 @@ def main():
         shuffle=False,
         round_up=False)
 
-
     # build the model and load checkpoint
     model = build_classifier(cfg.model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
@@ -78,6 +76,7 @@ hidden_outputs = {}
 
 
 def activation_hook(name):
+
     def hook(module, input, output):
         # [N, C, 1, 1]
         x = input[0]
@@ -101,10 +100,7 @@ def register_activation_hook(model):
 activations = dict()
 
 
-def single_gpu_vis(model,
-                   data_loader,
-                   show=False,
-                   out_dir=None):
+def single_gpu_vis(model, data_loader, show=False, out_dir=None):
     model.eval()
     register_activation_hook(model)
 
@@ -122,9 +118,10 @@ def single_gpu_vis(model,
             hidden_output = hidden_outputs[name].view(batch_size, -1)
             if name not in activations:
                 activations[name] = hidden_output.new_zeros(
-                    1000, hidden_output.shape[-1])/dataset_length
-            activations[name].scatter_add_(0, gt_label.unsqueeze(
-                1).expand_as(hidden_output), hidden_output)
+                    1000, hidden_output.shape[-1]) / dataset_length
+            activations[name].scatter_add_(
+                0,
+                gt_label.unsqueeze(1).expand_as(hidden_output), hidden_output)
 
         hidden_outputs.clear()
 
@@ -150,10 +147,16 @@ def single_gpu_vis(model,
         plt.plot(x, y)
         labels.append(class_name)
 
-    plt.legend(labels, ncol=1, loc='upper right',
-               columnspacing=2.0, labelspacing=1,
-               handletextpad=0.5, handlelength=1.5,
-           fancybox=True, shadow=True)
+    plt.legend(
+        labels,
+        ncol=1,
+        loc='upper right',
+        columnspacing=2.0,
+        labelspacing=1,
+        handletextpad=0.5,
+        handlelength=1.5,
+        fancybox=True,
+        shadow=True)
     plt.ylabel('Context Amplitude', fontsize=15, labelpad=15)
     plt.xlabel('Channel Index', fontsize=15, labelpad=15)
     mmcv.mkdir_or_exist(out_dir)

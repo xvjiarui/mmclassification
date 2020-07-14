@@ -152,8 +152,8 @@ class RandomResizedCrop(object):
         else:
             self.size = (size, size)
         if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
-            raise ValueError("range should be of kind (min, max). "
-                             f"But received {scale}")
+            raise ValueError('range should be of kind (min, max). '
+                             f'But received {scale}')
 
         self.interpolation = interpolation
         self.scale = scale
@@ -339,8 +339,8 @@ class Resize(object):
         if isinstance(size, int):
             size = (size, size)
         assert size[0] > 0 and size[1] > 0
-        assert interpolation in ("nearest", "bilinear", "bicubic", "area",
-                                 "lanczos")
+        assert interpolation in ('nearest', 'bilinear', 'bicubic', 'area',
+                                 'lanczos')
 
         self.height = size[0]
         self.width = size[1]

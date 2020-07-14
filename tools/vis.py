@@ -1,20 +1,17 @@
 import argparse
-import os.path as osp
 import os
-from collections import defaultdict
+import os.path as osp
 
+import matplotlib.pyplot as plt
 import mmcv
+import numpy as np
 import torch
 from mmcv import Config, DictAction
 from mmcv.parallel import MMDataParallel
-from mmcv.runner import init_dist, load_checkpoint
+from mmcv.runner import load_checkpoint
 
 from mmcls.datasets import build_dataloader, build_dataset
 from mmcls.models import build_classifier
-from mmcv import tensor2imgs
-import matplotlib.pyplot as plt
-import numpy as np
-
 
 
 def parse_args():
@@ -36,7 +33,8 @@ def main():
 
     assert args.show or args.show_dir, \
         ('Please specify at least one operation (save/eval/format/show the '
-         'results / save the results) with the argument "--show" or "--show-dir"')
+         'results / save the results) with the argument "--show" or '
+         '"--show-dir"')
 
     cfg = Config.fromfile(args.config)
     # set cudnn_benchmark
@@ -58,7 +56,6 @@ def main():
         shuffle=False,
         round_up=False)
 
-
     # build the model and load checkpoint
     model = build_classifier(cfg.model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
@@ -78,6 +75,7 @@ hidden_outputs = {}
 
 
 def activation_hook(name):
+
     def hook(module, input, output):
         hidden_outputs[name] = output
 
@@ -94,10 +92,7 @@ def register_activation_hook(model):
 activations = dict()
 
 
-def single_gpu_vis(model,
-                   data_loader,
-                   show=False,
-                   out_dir=None):
+def single_gpu_vis(model, data_loader, show=False, out_dir=None):
     model.eval()
     register_activation_hook(model)
 
@@ -115,8 +110,9 @@ def single_gpu_vis(model,
             if name not in activations:
                 activations[name] = hidden_output.new_zeros(
                     1000, hidden_output.shape[-1])
-            activations[name].scatter_add_(0, gt_label.unsqueeze(
-                1).expand_as(hidden_output), hidden_output)
+            activations[name].scatter_add_(
+                0,
+                gt_label.unsqueeze(1).expand_as(hidden_output), hidden_output)
 
         hidden_outputs.clear()
 
@@ -127,16 +123,14 @@ def single_gpu_vis(model,
         layer_act = activations[name]
 
         num_class, num_neuron = layer_act.size()
-        dead_neuron_class = torch.tensor(num_class).cuda()
-        dead_neuron_confidence = torch.tensor(0.).cuda()
 
         selected_class = []
         selectivity_index = []
         for neuron_idx in range(num_neuron):
             neuron_act = layer_act[:, neuron_idx]
 
-            # In the case of mean activations of a neuron are all zero across whole classes
-            # Simply consider that neuron as dead neuron.
+            # In the case of mean activations of a neuron are all zero across
+            # whole classes simply consider that neuron as dead neuron.
             if neuron_act.nonzero().size(0) == 0:
                 continue
             class_selected = neuron_act.argmax()
@@ -158,25 +152,31 @@ def single_gpu_vis(model,
     num_plots = len(result)
     colormap = plt.cm.jet
     plt.figure(figsize=(10, 10))
-    plt.gca().set_prop_cycle(color=
-        [colormap(i) for i in np.linspace(0, 0.9, num_plots)])
+    plt.gca().set_prop_cycle(
+        color=[colormap(i) for i in np.linspace(0, 0.9, num_plots)])
 
     labels = []
     for name in result:
         selectivity_index = result[name]['selectivity_index']
-        selectivity_index_hist = np.histogram(selectivity_index * 100,
-                                              bins=100, normed=True)
+        selectivity_index_hist = np.histogram(
+            selectivity_index * 100, bins=100, normed=True)
         x = np.arange(len(selectivity_index_hist[0])) / len(
             selectivity_index_hist[0])
         y = selectivity_index_hist[0]
-        plt.fill_between(x, y, step="pre", alpha=0.6)
+        plt.fill_between(x, y, step='pre', alpha=0.6)
         plt.plot(x, y)
         labels.append(name)
 
-    plt.legend(labels, ncol=1, loc='upper right',
-               columnspacing=2.0, labelspacing=1,
-               handletextpad=0.5, handlelength=1.5,
-               fancybox=True, shadow=True)
+    plt.legend(
+        labels,
+        ncol=1,
+        loc='upper right',
+        columnspacing=2.0,
+        labelspacing=1,
+        handletextpad=0.5,
+        handlelength=1.5,
+        fancybox=True,
+        shadow=True)
     plt.ylabel('PDF', fontsize=15, labelpad=15)
     plt.xlabel('Selectivity Index', fontsize=15, labelpad=15)
 
@@ -186,7 +186,6 @@ def single_gpu_vis(model,
     else:
         fig_name = os.path.join(out_dir, 'histogram.png')
         plt.savefig(fig_name)
-
 
 
 if __name__ == '__main__':

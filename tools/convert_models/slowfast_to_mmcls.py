@@ -33,8 +33,8 @@ def convert(src, dst):
     # save checkpoint
     checkpoint = dict()
     checkpoint['state_dict'] = state_dict
-    assert len(state_dict) == len(src_state_dict), '{} vs {}'.format(len(
-        state_dict), len(src_state_dict))
+    assert len(state_dict) == len(src_state_dict), '{} vs {}'.format(
+        len(state_dict), len(src_state_dict))
     checkpoint['meta'] = dict()
     torch.save(checkpoint, dst)
 
